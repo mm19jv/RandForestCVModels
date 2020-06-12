@@ -1,0 +1,224 @@
+---
+title: "StatsCW3.1"
+author: "Jordan Vauls 201364552"
+date: "25/04/2020"
+output: pdf_document
+---
+# Introduction
+In this report, we will be analysing variables (CapShape, CapSurface, CapColor, Odor and Height) to see which of the variables predict how edible mushroom are and how stable such relationships. In addition, we will loop over all of the possible models to find out which model performs the best in predicted how edible the mushrooms are and discuss how we will use this classifier if we were to use it for foraging.
+
+At the end of the study, the best random forest model will be used to determine whether a mushroom is edible or not based on its characteristics. A decision will be drawn on which inputs suit best and which will have the best predictive values. The best model can be calculated by cross-validation.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+```{r, warning = FALSE, results=FALSE, message=FALSE}
+library(e1071)  
+library(caret)  
+library(ggplot2)
+library(randomForest)
+library(knitr)
+library(ggplot2)
+library(tidyverse)
+library(caret)
+library(knitr)
+require(gridExtra)
+library(dplyr)
+library(ggpubr)
+library(reshape2)
+library(randomForest)
+library(dagR)
+```
+#### Setting up the dataframe called "data_set"
+Firstly we will setup the dataset which will then be used to query from and create the models as well as importing the packages which have been used throughout the completion of the tasks.
+```{r}
+DataMushrooms <- read.csv("C:\\Users\\JordanLaptop\\Desktop\\StatsCW3\\mushrooms.csv")
+```
+```{r}
+dim(DataMushrooms)
+str(DataMushrooms)
+names(DataMushrooms)
+typeof(DataMushrooms)
+```
+# 1. Fit Random Forest models using each possible input on its own to predict edibility. Evaluate thequality of fit by using the predict function to calculate the predicted class for each mushroom (edible or poisonous) (hint, you need type='response'). Which input fits best? (i.e. which classifies the most mushrooms correctly?)
+
+Interpretation: The Random Forest is a group of decision trees that manipulate collective intelligence to produce very specific predictions. It uses bootstrapping to produce different tests from the actual data in order to construct various decision tree models and eventually measure the mean over all tree predictions when making predictions.
+
+Random forests are one of the most common algorithms in machine learning.  They have strong predictive efficiency, low overfitting and simple interpretability. The fact that it is easy to deduce the value of each element on the tree decision allows this interpretability.  In other terms, computation of how much each variable contributes to the decision is simple.
+
+After training a random forest, we want to look at which variables had the most predictive value. Variables of high interest are the generators of the performance and their principles have a considerable impact on the outcomes. By comparison, low-importance variables may be excluded from a model, making fitting and forecasting easier and quicker.
+
+There are two measures of significance provided in the random forest of each variable. Its first metric is focused on the extent to which the accuracy lowers once the variable is removed. This is also degraded by the class of the outcome. The second metric is centred on the reduction in Gini impurity once the variable is selected to divide the node.
+
+We create the model using the Edible variable followed by each input variable to check against from the DataMushrooms dataset. I then print the Random Forest model to analyse the details.
+```{r}
+forest = randomForest(Edible ~ CapShape + CapSurface + CapColor + Odor + Height, data = DataMushrooms)
+print(forest)
+```
+The model shows that it is a classification model and is split into 500 decision trees in which these have 2 variables which are tried at each of the splits. 
+
+Gini Value or Mean Decrease in Impurity (MDI) measures of function of significance as an quantity over the number of splits (above all tresses) that contain the attribute this is relative to the number of tests which have been sampled. When a tree is built, the decision on which variable to divide at each node is based on a Gini impurity calculation. Each variable, the amount of the Gini decreases through any tree in the forest any time the vector is used to segment the node. The total is split by the number of trees in the forest on average. The scale is irrelevant: only the relative values are significant. In the illustration below, the odour is the main component preceded by the colour of the mushrooms caps.
+```{r}
+varImpPlot(forest, main="Variable Importance")
+```
+```{r}
+#Variable Importance
+var.imp = data.frame(importance(forest, type=2))
+# make row names as columns
+var.imp$Variables = row.names(var.imp)  
+print(var.imp[order(var.imp$MeanDecreaseGini, decreasing = T),])
+```
+We create the model with each individual variable so we can test these models accuracy, this will tell us how much predictive power it has on how edible the mushroom is. This should also correlate with the previous section of Gini-based importance. 
+```{r}
+
+forest1 = randomForest(Edible ~ CapShape, data = DataMushrooms)
+forest2 = randomForest(Edible ~ CapSurface, data = DataMushrooms)
+forest3 = randomForest(Edible ~ CapColor, data = DataMushrooms)
+forest4 = randomForest(Edible ~ Odor, data = DataMushrooms)
+forest5 = randomForest(Edible ~ Height, data = DataMushrooms)
+
+
+```
+```{r}
+get_accuracy <- function(model) {
+  prediction <- (predict(model, type="response"))
+  Acc <- sum(prediction == DataMushrooms$Edible ) / nrow(DataMushrooms) 
+  return(Acc)
+}
+```
+
+```{r, echo=FALSE}
+get_accuracy(forest1)
+get_accuracy(forest2)
+get_accuracy(forest3)
+get_accuracy(forest4)
+get_accuracy(forest5)
+```
+
+```{r}
+models_summary <- matrix(ncol = 2, nrow = 5)
+colnames(models_summary) <- c('Model', 'Accuracy')
+   options(knitr.kable.NA = '')
+   
+models_summary[1,1] = "Model1, Edible ~ CapShape"
+models_summary[1,2] = get_accuracy(forest1)
+
+models_summary[2,1] = "Model2, Edible ~ CapSurface"
+models_summary[2,2] = get_accuracy(forest2)
+
+models_summary[3,1] = "Model3, Edible ~ CapColor"
+models_summary[3,2] = get_accuracy(forest3)
+
+models_summary[4,1] = "Model4, Edible ~ Odor"
+models_summary[4,2] = get_accuracy(forest4)
+
+models_summary[5,1] = "Model5, Edible ~ Height"
+models_summary[5,2] = get_accuracy(forest5)
+
+
+kable(models_summary, caption = "Models Accuracy Summary")
+   
+```
+
+From the above table it can be seen that all inputs fit the data with a over 50% accuracy. This means that each input offers good predictive qualitys. however it can seen that the variable that has the ost infroamtive input is 'Odor', having an accuracy of 98%. The other next most informative is the 'CapColor' at 40%. While height is the least informative having a accuracy of 51%.
+
+This value is calculated by how much excluding a variable decreases accuracy, and vice versa — through how much adding a variable improves accuracy. Viewing both the gini value and the precision enables a contrast of the significance of the rating of all factors in all scales.
+
+# 2. Using cross-validation, perform a model selection to determine which features are useful for makingpredictions using a Random Forest. As above, use the number of mushrooms correctly classified as thecriterion for deciding which model is best. You might try to find a way to loop over all 32 possiblemodels (ignore the possibility of no input variables. Hint: you can use allCombs in the dagR packageto generate all combos of the numbers 1 to n). Or select features 'greedily', by picking one at a time to add to the model. Present your results in the most convincing way you can.
+
+Cross validation is a method to avoid overfitting and to see how well the model can predict data which it has not been traiend against. We must create all the models needed to check against to find the most optinum model.The combos of models were created so that we may loop around each of the random forest models to find the most optimal model to use in the end. all the poosible combos are then added to a list called 'combos'.
+
+Using the model chosen from both the formula list, we replicate this cycle 100 times for consistency and validation. When the cycle is over, we add a model with the highest accuracy to the list and assign the list at the end of the process to decide which model is optimum, i.e. the version with the maximum accuracy, the most number of times.
+
+```{r}
+FuncRandataframeorestACCU = function(combos, models, traindata, testdata) {
+dataframe <- data.frame(
+input = vector(length = (nrow(combos) - 1)),
+count = vector(length = (nrow(combos) - 1)),
+accuracy = vector(length = (nrow(combos) - 1))
+)
+for(i in 2:nrow(combos)) {
+row <- combos[i,]
+formula = paste("Edible ~", models[row[1]])
+for(j in 2:length(row)){
+if (!is.na(row[j]))
+formula = paste(formula, models[row[j]], sep = " + ")
+}
+data_forest_loop = randomForest(formula(formula), data=traindata)
+dataframe$input[i-1] = sub(".*~ ", "", formula)
+dataframe$count[i-1] = sum(predict(data_forest_loop, newdata = testdata, type = "response") == testdata$Edible)
+dataframe$accuracy[i-1] = dataframe$count[i-1] / nrow(testdata) *100
+}
+return(dataframe)
+}
+```
+
+Using the allCombs function we calculate every combination of model possible.
+```{r, cache = TRUE}
+combos = allCombs(1:5)
+models = c('CapShape', 'CapSurface', 'CapColor', 'Odor', 'Height')
+number_of_loops = 50
+modelname_dataframe = rep(NA, number_of_loops)
+winningmodel = rep(NA, number_of_loops)
+avgaccu = rep(0, nrow(combos) - 1)
+for (iteration in 1:number_of_loops){
+test_idx = sample(dim(DataMushrooms)[1], round(nrow(DataMushrooms)*0.75))
+traindata = DataMushrooms[-test_idx, ]
+testdata = DataMushrooms[test_idx, ]
+dataframe = FuncRandataframeorestACCU(combos, models, traindata, testdata)
+winningmodel[iteration] = dataframe$input[which.max(dataframe$count)]
+avgaccu = avgaccu + (dataframe$accuracy / number_of_loops)
+}
+modelname_dataframe = dataframe$input
+dataframe <- data.frame(
+winningmodel = winningmodel
+)
+```
+
+```{r}
+ggplot(data=dataframe, aes(x = winningmodel)) +
+geom_bar(fill="red") +
+geom_text(stat = 'count', aes(label = ..count..), vjust = -0.50, color = "red", size = 2.5) +
+scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+xlab("Model") +
+ylab("Count wins") +
+labs(caption = " ") 
+```
+
+```{r, echo=FALSE}
+indx = which(modelname_dataframe %in% winningmodel)
+dataframe1 <- data.frame(
+input = modelname_dataframe,#[indx],
+avgaccu = avgaccu#[indx]
+)
+```
+
+
+# 3. Would you use this classifier if you were foraging for mushrooms? Discuss with reference to factors that you identified as important and the probability of posioning yourself.
+
+We would use this classifier if the likelihood of poisoning ourselves was zero, then we would check to see if the the variables are easy to identify such as the shape of the mushroom or the colour of the mushroom. To test this, we will use the best output model in the previous section where we find the model which is best predicting the test set each time. The best-performing model was the one that used all inputs except height. On the other hand, we have calculated the best model according to its precision, which does not differentiate between errors in predicting the Edible or the Poisonous incorrectly. However, in this case, this distinction is very significant as it is not possible to predict correctly that the edible mushroom (predicting that it is poisonous) is not toxic, but the opposite may kill anyone. Thus, to determine whether or not to use this classifier, we must measure the uncertainty matrix and then the prev, which shows the percentage of the accurately predicted Edible mushrooms out of the overall predicted Edible. 
+
+```{r}
+RandomForest_DatMushrooms = randomForest(Edible ~ CapShape + CapSurface + CapColor + Odor, data=traindata)
+set_1 = testdata %>% filter(Edible=="Edible")
+true_positive = sum(predict(RandomForest_DatMushrooms, newdata = set_1, type = "response") == set_1$Edible)
+fn = nrow(set_1) - true_positive
+set_1 = testdata %>% filter(Edible=="Poisonous")
+true_negative = sum(predict(RandomForest_DatMushrooms, newdata = set_1, type = "response") == set_1$Edible)
+false_positive = nrow(set_1) - true_negative
+dataframe2 <- data.frame(Categ = c("Edible", "Poisonous"),Edib = c(true_positive, false_positive),Pois = c(fn, true_negative))
+kable(dataframe2, col.names = c("Actual \\ Predicted", "Edible", "Poisonous"), caption = "Confusion matrix.")
+```
+```{r, echo=FALSE}
+prec = true_positive / (true_positive + false_positive)
+prob = 1 - prec
+print(prec)
+```
+We can see how things might have been in a real situation using this model. We got a score of 0.9831 per cent which gives us an error rate of 0.0169 per cent chance of consuming a toxic mushroom. While, potentially, this is quite a good result the problem is that the classifier is not 100% correct this means that the user could still get a poisonous mushroom on chance, this is why we would have been hesitant to use it. The classifier, none the less, should take into account the user and their perceptions, including the complexity of picking a shade/colour or a certain shapes, for instance, if we discover a light colored mushroom, thinking about how the user would percieve the colour of the mushroom, this is the problem with the classifier. I conclude that this classifier is un-safe to use and should only be used if the usrer is certain about the descriptive variables of the mushroom.
+
+
+
+
+
+
+
+
